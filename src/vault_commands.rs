@@ -9,7 +9,7 @@ use std::io::Write;
 use sui_types::crypto::{ SignatureScheme };
 use sui_keys::key_derive::{validate_path, DERVIATION_PATH_PURPOSE_SECP256K1, DERIVATION_PATH_COIN_TYPE};
 use fastcrypto::encoding::{Base64, Encoding};
-use crate::ks_wallet::{ Wallet, WalletError, prompt_password, confirm_password };
+use crate::wallets::{ Wallet, WalletError, prompt_password, confirm_password };
 use crate::api::serve_api;
 // util functions
 fn prompt_input(prompt:&str) -> String {

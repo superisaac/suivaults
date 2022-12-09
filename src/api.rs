@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use sui_types::crypto::{ SignatureScheme };
 use fastcrypto::encoding::{Base64, Encoding};
 
-use crate::ks_wallet::Wallet;
+use crate::wallets::Wallet;
 
 pub async fn serve_api(wallet: Arc<Wallet>, server_bind: String) {
     let app = Router::new()

@@ -219,7 +219,6 @@ impl Wallet {
 
     fn derive_key_pair(&self, key_scheme: &SignatureScheme, derive_path: Option<String>) -> Result<(SuiAddress, SuiKeyPair), WalletError> {
         let dpath = parse_derive_path(derive_path)?;
-        println!("ddd path {:?}", dpath);
         derive_key_pair_from_path(
             self.secret.as_slice(),
             dpath,
