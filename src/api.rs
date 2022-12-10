@@ -11,6 +11,9 @@ use serde::{Deserialize, Serialize};
 use sui_types::crypto::{ SignatureScheme };
 use fastcrypto::encoding::{Base64, Encoding};
 
+use log::{error};
+//use tracing::{info, warn, error};
+
 use crate::wallets::Wallet;
 
 pub async fn serve_api(wallet: Arc<Wallet>, server_bind: String) {
@@ -64,7 +67,7 @@ async fn get_address(
         &sig_scheme,
         Some(derivation_path.clone()))
         .or_else(|e| {
-            println!("wallet error {:?}, when creating address", e);
+            error!("wallet error {:?}, when creating address", e);
             Err(StatusCode::BAD_REQUEST)
         })?;
     Ok(Json(CreateAddressResponse {
@@ -82,7 +85,7 @@ async fn create_address(
         &key_scheme,
         req.derivation_path.clone())
         .or_else(|e| {
-            println!("create address wallet error {:?}", e);
+            error!("create address wallet error {:?}", e);
             Err(StatusCode::BAD_REQUEST)
         })?;
     Ok(Json(CreateAddressResponse {
@@ -110,7 +113,7 @@ async fn make_signature(
 
     let decoded = Base64::decode(req.data.as_str())
             .or_else(|e| {
-                println!("error at Base64::decode {:?}, {}", e, req.data);
+                error!("error at Base64::decode {:?}, {}", e, req.data);
                 Err(StatusCode::BAD_REQUEST)
             })?;
     let key_scheme = parse_sig_scheme(req.key_scheme.as_str())?; //SignatureScheme::from_str(req.key_scheme.as_str()).unwrap();
@@ -119,7 +122,7 @@ async fn make_signature(
             req.derivation_path,
             decoded.as_slice())
             .or_else(|e| {
-                println!("error at sign {:?}", e);
+                error!("error at sign {:?}", e);
                 Err(StatusCode::BAD_REQUEST)
             })?;
 
@@ -133,6 +136,7 @@ fn parse_sig_scheme(scheme_str: &str) -> Result<SignatureScheme, StatusCode> {
     let key_scheme = SignatureScheme::from_str(scheme_str)
     .or_else(|e| {
         println!("bad parsing SignatureScheme {:?} using {}", e, scheme_str);
+        error!("bad parsing SignatureScheme {:?} using {}", e, scheme_str);
         Err(StatusCode::BAD_REQUEST)
     })?;
     Ok(key_scheme)

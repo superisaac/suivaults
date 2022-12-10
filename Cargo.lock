@@ -8907,6 +8907,7 @@ dependencies = [
  "fastcrypto 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "home",
  "jsonrpsee 0.16.2",
+ "log",
  "rand 0.8.5",
  "rpassword",
  "serde 1.0.149",
