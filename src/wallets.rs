@@ -227,20 +227,23 @@ impl Wallet {
 
     pub fn sign(&self, key_scheme: &SignatureScheme, derive_path: Option<String>, data: &[u8]) -> Result<SigResult, WalletError> {
         let (_, key_pair) = self.derive_key_pair(key_scheme, derive_path)?;
-        let sig_joined = key_pair.try_sign(data).or_else(|err| Err(WalletError::Signature(err)))?;
+
+        let sig_joined = key_pair.try_sign(data)
+                                    .or_else(|err| Err(WalletError::Signature(err)))?;
+
         let signature_string = format!("{:?}", sig_joined);
-        // signature string is the conjunction of flag, sig and public key.
+
+        // signature string is the conjunction of [flag, sig, public key] using '@'.
         let sig_split = signature_string.split('@').collect::<Vec<_>>();
-        let flag = sig_split
-                .first()
-                .unwrap();
+        let (flag, signature, pub_key) = 
+        if let [flag, signature, pub_key] = sig_split.as_slice() { 
+            (flag, signature, pub_key) 
+        } else {
+             panic!("bad signature string {}", signature_string);
+        };
+
         let decoded_flag = Base64::decode(*flag).unwrap();
-        let signature = sig_split
-                .get(1)
-                .unwrap();
-        let pub_key = sig_split
-                .last()
-                .unwrap();
+
         Ok(SigResult { 
             flag: decoded_flag, 
             signature: (*signature).to_owned(),
