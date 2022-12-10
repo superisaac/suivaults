@@ -50,6 +50,7 @@ struct GetAddressParams {
     change: String,
     index: String,
 }
+
 async fn get_address(
     Path(GetAddressParams {
         key_scheme, purpose, coin_type, account, change, index
@@ -57,9 +58,16 @@ async fn get_address(
     State(wallet): State<Arc<Wallet>>
 ) -> Result<impl IntoResponse, StatusCode> {
     let derivation_path = format!("m/{}/{}/{}/{}/{}", purpose, coin_type, account, change, index);
-    let sig_scheme = SignatureScheme::from_str(key_scheme.as_str()).unwrap();
-    let addr = wallet.create_address(&sig_scheme, Some(derivation_path.clone())).unwrap();
-    Ok(Json(CreateAddressResponse { 
+    let sig_scheme = parse_sig_scheme(key_scheme.as_str())?;
+
+    let addr = wallet.create_address(
+        &sig_scheme,
+        Some(derivation_path.clone()))
+        .or_else(|e| {
+            println!("wallet error {:?}, when creating address", e);
+            Err(StatusCode::BAD_REQUEST)
+        })?;
+    Ok(Json(CreateAddressResponse {
         derivation_path: derivation_path.clone(),
         address: addr.to_string()
      }))
@@ -68,9 +76,16 @@ async fn get_address(
 async fn create_address(
     State(wallet): State<Arc<Wallet>>,
     Form(req): Form<CreateAddressRequest>) -> Result<impl IntoResponse, StatusCode> {
-    let key_scheme = SignatureScheme::from_str(req.key_scheme.as_str()).unwrap();
-    let addr = wallet.create_address(&key_scheme, req.derivation_path.clone()).unwrap();
-    Ok(Json(CreateAddressResponse { 
+    let key_scheme = parse_sig_scheme(req.key_scheme.as_str())?;
+
+    let addr = wallet.create_address(
+        &key_scheme,
+        req.derivation_path.clone())
+        .or_else(|e| {
+            println!("create address wallet error {:?}", e);
+            Err(StatusCode::BAD_REQUEST)
+        })?;
+    Ok(Json(CreateAddressResponse {
         derivation_path: req.derivation_path.clone().unwrap_or("".to_owned()),
         address: addr.to_string()
      }))
@@ -93,10 +108,32 @@ async fn make_signature(
     State(wallet): State<Arc<Wallet>>,
     Form(req): Form<SignRequest>) -> Result<impl IntoResponse, StatusCode> {
 
-    let decoded = Base64::decode(req.data.as_str()).or_else(|_| Err(StatusCode::BAD_REQUEST))?;
-    let key_scheme = SignatureScheme::from_str(req.key_scheme.as_str()).unwrap();
-    let sig = wallet.sign(&key_scheme, req.derivation_path, decoded.as_slice()).unwrap();
-    Ok(Json(SignResponse { 
+    let decoded = Base64::decode(req.data.as_str())
+            .or_else(|e| {
+                println!("error at Base64::decode {:?}, {}", e, req.data);
+                Err(StatusCode::BAD_REQUEST)
+            })?;
+    let key_scheme = parse_sig_scheme(req.key_scheme.as_str())?; //SignatureScheme::from_str(req.key_scheme.as_str()).unwrap();
+    let sig = wallet.sign(
+            &key_scheme,
+            req.derivation_path,
+            decoded.as_slice())
+            .or_else(|e| {
+                println!("error at sign {:?}", e);
+                Err(StatusCode::BAD_REQUEST)
+            })?;
+
+    Ok(Json(SignResponse {
         signature: sig.signature(),
     }))
+}
+
+// helper functions
+fn parse_sig_scheme(scheme_str: &str) -> Result<SignatureScheme, StatusCode> {
+    let key_scheme = SignatureScheme::from_str(scheme_str)
+    .or_else(|e| {
+        println!("bad parsing SignatureScheme {:?} using {}", e, scheme_str);
+        Err(StatusCode::BAD_REQUEST)
+    })?;
+    Ok(key_scheme)
 }

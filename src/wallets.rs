@@ -130,7 +130,7 @@ impl Wallet {
     pub fn wallet_exists(name: &str) -> bool {
         wallet_directory().join(name.to_owned() + ".json").exists()
     }
-    
+
     pub fn new_mnemonic() -> String {
         let mnemonic = Mnemonic::random(OsRng, Language::English);
         return mnemonic.phrase().to_owned();
@@ -176,7 +176,7 @@ impl Wallet {
         let dir = wallet_directory();
         if !dir.clone().exists() {
             create_dir_all(dir.clone())
-            .or_else(|e| Err(WalletError::IoError { 
+            .or_else(|e| Err(WalletError::IoError {
                 message: e.to_string()
             }))?;
         }
@@ -200,7 +200,7 @@ impl Wallet {
         let file_path = wallet_directory().join(name.to_owned() + ".json");
 
         if !file_path.exists() {
-            return Err(WalletError::WalletNotExist { 
+            return Err(WalletError::WalletNotExist {
                 wallet_name: name.to_owned()
             });
         }
@@ -235,17 +235,17 @@ impl Wallet {
 
         // signature string is the conjunction of [flag, sig, public key] using '@'.
         let sig_split = signature_string.split('@').collect::<Vec<_>>();
-        let (flag, signature, pub_key) = 
-        if let [flag, signature, pub_key] = sig_split.as_slice() { 
-            (flag, signature, pub_key) 
+        let (flag, signature, pub_key) =
+        if let [flag, signature, pub_key] = sig_split.as_slice() {
+            (flag, signature, pub_key)
         } else {
              panic!("bad signature string {}", signature_string);
         };
 
         let decoded_flag = Base64::decode(*flag).unwrap();
 
-        Ok(SigResult { 
-            flag: decoded_flag, 
+        Ok(SigResult {
+            flag: decoded_flag,
             signature: (*signature).to_owned(),
             public_key: (*pub_key).to_owned()
         })

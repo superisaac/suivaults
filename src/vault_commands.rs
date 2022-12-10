@@ -17,7 +17,7 @@ fn prompt_input(prompt:&str) -> String {
     print!("{}", prompt);
     std::io::stdout().flush().unwrap();
     std::io::stdin().read_line(&mut line).expect("Error: Could not read a line");
- 
+
     return line.trim().to_string()
 }
 
@@ -91,7 +91,7 @@ impl KsCommand {
         match self {
             KsCommand::Random {
                 wallet,
-            } => { 
+            } => {
                 if Wallet::wallet_exists(wallet.as_str()) {
                     return Err(WalletError::WalletAlreadyExist { wallet_name: wallet });
                 }
@@ -107,7 +107,7 @@ impl KsCommand {
 
             KsCommand::Import {
                 wallet,
-            } => { 
+            } => {
                 if Wallet::wallet_exists(wallet.as_str()) {
                     return Err(WalletError::WalletAlreadyExist { wallet_name: wallet });
                 }
@@ -141,9 +141,11 @@ impl KsCommand {
                             .or_else(|e| Err(WalletError::ParamsError {
                                  message: format!("key scheme error, {}", e.to_string()),
                                 }))?;
+
                 if !Wallet::wallet_exists(wallet.as_str()) {
                     return Err(WalletError::WalletNotExist { wallet_name: wallet });
                 }
+
                 let password = prompt_password();
                 let w = Wallet::load(wallet.as_str(), password.clone())?;
                 let addr = w.create_address(&sig_scheme, path.clone())?;
@@ -158,17 +160,20 @@ impl KsCommand {
                 path,
                 data,
             } => {
-                let sig_scheme = &SignatureScheme::from_str(key_scheme.as_str())
+                let sig_scheme = &SignatureScheme::from_str(
+                            key_scheme.as_str())
                             .or_else(|e| Err(WalletError::ParamsError {
                                  message: format!("key scheme error, {}", e.to_string()),
                                     }))?;
+
                 if data.is_none() {
-                    return Err(WalletError::ParamsError { 
+                    return Err(WalletError::ParamsError {
                         message: "no data provided".to_owned()
                     });
                 }
+
                 let decoded = Base64::decode(data.unwrap().as_str()).or_else(|e| {
-                    Err(WalletError::ParamsError { 
+                    Err(WalletError::ParamsError {
                         message: format!("invalid data {}", e.to_string()),
                     })
                 })?;
@@ -179,16 +184,16 @@ impl KsCommand {
                 let password = prompt_password();
                 let w = Wallet::load(wallet.as_str(), password.clone())?;
                 let sig = w.sign(&sig_scheme, path, decoded.as_slice())?;
-                
+
                 println!("Key Scheme: {}", sig.signature_scheme()?);
                 println!("Public Key Base64: {}", sig.public_key());
                 println!("Signature: {}", sig.signature());
                 Ok(())
             },
 
-            KsCommand::ServeApi { 
+            KsCommand::ServeApi {
                 wallet,
-                bind 
+                bind
             } => {
                 if !Wallet::wallet_exists(wallet.as_str()) {
                     return Err(WalletError::WalletNotExist { wallet_name: wallet });
@@ -197,7 +202,7 @@ impl KsCommand {
                 let w = Wallet::load(wallet.as_str(), password.clone())?;
                 serve_api(w, bind).await;
                 Ok(())
-            }, 
+            },
 
             KsCommand::Experiment => {
                 let key_scheme = &SignatureScheme::Secp256k1;
