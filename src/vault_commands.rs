@@ -79,6 +79,13 @@ pub enum KsCommand {
 
         #[clap(short, long, help="server bind address", default_value="127.0.0.1:9030")]
         bind: String,
+
+        #[clap(long, help="tls cert file")]
+        cert_file: Option<String>,
+
+        #[clap(long, help="tls key file")]
+        key_file: Option<String>,
+
     },
 
     #[clap(name = "experiment", about = "do experiments")]
@@ -194,14 +201,16 @@ impl KsCommand {
 
             KsCommand::ServeApi {
                 wallet,
-                bind
+                bind,
+                cert_file,
+                key_file,
             } => {
                 if !Wallet::wallet_exists(wallet.as_str()) {
                     return Err(WalletError::WalletNotExist { wallet_name: wallet });
                 }
                 let password = prompt_password();
                 let w = Wallet::load(wallet.as_str(), password.clone())?;
-                serve_api(w, bind).await;
+                serve_api(w, bind, cert_file, key_file).await;
                 Ok(())
             },
 

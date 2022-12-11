@@ -3,6 +3,7 @@ use axum::extract::{Path, State};
 use axum::routing::{get, post};
 use axum::response::IntoResponse;
 use axum::http::StatusCode;
+use axum_server::tls_rustls::RustlsConfig;
 
 use std::sync::Arc;
 use std::str::FromStr;
@@ -17,7 +18,7 @@ use log::{error};
 
 use crate::wallets::Wallet;
 
-pub async fn serve_api(wallet: Arc<Wallet>, server_bind: String) {
+pub async fn serve_api(wallet: Arc<Wallet>, server_bind: String, cert_file: Option<String>, key_file: Option<String>) {
     let app = Router::new()
               //.route("/addresses", post(create_address))
               .route("/addresses/:key_scheme/m/:purpose/:coin_type/:account/:change/:index", get(get_address))
@@ -26,10 +27,24 @@ pub async fn serve_api(wallet: Arc<Wallet>, server_bind: String) {
 
     let addr = SocketAddr::from_str(server_bind.as_str()).unwrap();
     println!("Api server starts at http://{}, available endpoints are GET /addresses/... and POST /signatures ", server_bind);
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
-        .await
-        .unwrap();
+
+    match (cert_file, key_file) {
+        (Some(cert_file), Some(key_file)) => {
+            let config = RustlsConfig::from_pem_file(cert_file, key_file)
+                .await
+                .unwrap();
+            axum_server::bind_rustls(addr, config)
+                .serve(app.into_make_service())
+                .await
+                .unwrap();
+        },
+        _ => {
+            axum_server::bind(addr)
+                .serve(app.into_make_service())
+                .await
+                .unwrap();
+        }
+    }
 }
 
 // error resp
