@@ -7,6 +7,7 @@ use axum::http::StatusCode;
 use std::sync::Arc;
 use std::str::FromStr;
 use std::net::SocketAddr;
+
 use serde::{Deserialize, Serialize};
 use sui_types::crypto::{ SignatureScheme };
 use fastcrypto::encoding::{Base64, Encoding};
@@ -18,13 +19,13 @@ use crate::wallets::Wallet;
 
 pub async fn serve_api(wallet: Arc<Wallet>, server_bind: String) {
     let app = Router::new()
-              .route("/addresses", post(create_address))
+              //.route("/addresses", post(create_address))
               .route("/addresses/:key_scheme/m/:purpose/:coin_type/:account/:change/:index", get(get_address))
               .route("/signatures", post(make_signature))
               .with_state(wallet);
 
     let addr = SocketAddr::from_str(server_bind.as_str()).unwrap();
-    println!("Api server starts at http://{}, available endpoints are POST /addresses and POST /signatures ", server_bind);
+    println!("Api server starts at http://{}, available endpoints are GET /addresses/... and POST /signatures ", server_bind);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await
@@ -52,16 +53,17 @@ fn bad_req(message: String) -> (StatusCode, Json<ErrResp>) {
 }
 
 // create address
-#[derive(Deserialize)]
-struct CreateAddressRequest {
-    key_scheme: String,
-    derivation_path: Option<String>,
-}
+// #[derive(Deserialize)]
+// struct CreateAddressRequest {
+//     key_scheme: String,
+//     derivation_path: Option<String>,
+// }
 
 #[derive(Deserialize, Serialize)]
 struct CreateAddressResponse {
     derivation_path: String,
-    address: String
+    address: String,
+    pubkey: String,
 }
 
 #[derive(Deserialize)]
@@ -85,7 +87,7 @@ async fn get_address(
     let derivation_path = format!("m/{}/{}/{}/{}/{}", purpose, coin_type, account, change, index);
     let sig_scheme = parse_sig_scheme(key_scheme.as_str())?;
 
-    let addr = wallet.create_address(
+    let (addr, pubkey) = wallet.derive_address(
         &sig_scheme,
         Some(derivation_path.clone()))
         .or_else(|e| {
@@ -93,26 +95,27 @@ async fn get_address(
         })?;
     Ok(Json(CreateAddressResponse {
         derivation_path: derivation_path.clone(),
-        address: addr.to_string()
+        address: addr.to_string(),
+        pubkey: Base64::encode(pubkey.as_ref()),
      }))
 }
 
-async fn create_address(
-    State(wallet): State<Arc<Wallet>>,
-    Form(req): Form<CreateAddressRequest>) -> Result<impl IntoResponse, (StatusCode, Json<ErrResp>)> {
-    let key_scheme = parse_sig_scheme(req.key_scheme.as_str())?;
+// async fn create_address(
+//     State(wallet): State<Arc<Wallet>>,
+//     Form(req): Form<CreateAddressRequest>) -> Result<impl IntoResponse, (StatusCode, Json<ErrResp>)> {
+//     let key_scheme = parse_sig_scheme(req.key_scheme.as_str())?;
 
-    let addr = wallet.create_address(
-        &key_scheme,
-        req.derivation_path.clone())
-        .or_else(|e| {
-            Err(bad_req(format!("create address error, {:?}", e)))
-        })?;
-    Ok(Json(CreateAddressResponse {
-        derivation_path: req.derivation_path.clone().unwrap_or("".to_owned()),
-        address: addr.to_string()
-     }))
-}
+//     let addr = wallet.create_address(
+//         &key_scheme,
+//         req.derivation_path.clone())
+//         .or_else(|e| {
+//             Err(bad_req(format!("create address error, {:?}", e)))
+//         })?;
+//     Ok(Json(CreateAddressResponse {
+//         derivation_path: req.derivation_path.clone().unwrap_or("".to_owned()),
+//         address: addr.to_string()
+//      }))
+// }
 
 // signature
 #[derive(Deserialize)]

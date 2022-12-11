@@ -148,9 +148,10 @@ impl KsCommand {
 
                 let password = prompt_password();
                 let w = Wallet::load(wallet.as_str(), password.clone())?;
-                let addr = w.create_address(&sig_scheme, path.clone())?;
+                let (addr, pubkey)= w.derive_address(&sig_scheme, path.clone())?;
                 println!("Derivation path: {}", path.clone().unwrap_or("None".to_owned()));
                 println!("Created address: {}", addr);
+                println!("Public key: {}", Base64::encode(pubkey.as_ref()));
                 Ok(())
             },
 

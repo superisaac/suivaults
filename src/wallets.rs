@@ -13,7 +13,7 @@ use bip32::{DerivationPath, Mnemonic, Language};
 use eth_keystore::{encrypt_key, decrypt_key, KeystoreError};
 use fastcrypto::encoding::{Base64, Encoding};
 use sui_keys::key_derive::derive_key_pair_from_path;
-use sui_types::crypto::{SignatureScheme, SuiKeyPair };
+use sui_types::crypto::{SignatureScheme, SuiKeyPair, PublicKey };
 use sui_types::base_types::SuiAddress;
 use sui_types::error::SuiError;
 use signature::{ Signer, Error as SigError};
@@ -251,9 +251,9 @@ impl Wallet {
         })
     }
 
-    pub fn create_address(&self, key_scheme: &SignatureScheme, derive_path: Option<String>) -> Result<SuiAddress, WalletError> {
-        let (addr, _) = self.derive_key_pair(key_scheme, derive_path)?;
-        Ok(addr)
+    pub fn derive_address(&self, key_scheme: &SignatureScheme, derive_path: Option<String>) -> Result<(SuiAddress, PublicKey), WalletError> {
+        let (addr, key_pair) = self.derive_key_pair(key_scheme, derive_path)?;
+        Ok((addr, key_pair.public()))
     }
 
 }
