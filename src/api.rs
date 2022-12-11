@@ -24,11 +24,31 @@ pub async fn serve_api(wallet: Arc<Wallet>, server_bind: String) {
               .with_state(wallet);
 
     let addr = SocketAddr::from_str(server_bind.as_str()).unwrap();
-    println!("api server starts at http://{}, available endpoints are POST /addresses and POST /signatures ", server_bind);
+    println!("Api server starts at http://{}, available endpoints are POST /addresses and POST /signatures ", server_bind);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await
         .unwrap();
+}
+
+// error resp
+#[derive(Deserialize, Serialize)]
+struct ErrResp {
+    status_code: u16,
+    message: String,
+}
+
+fn err_resp(code: StatusCode, message: String) -> (StatusCode, Json<ErrResp>) {
+    println!("code {}, message: {}", code.as_u16(), message);
+    error!("code {}, message: {}", code.as_u16(), message);
+    (code, Json(ErrResp{
+        status_code: code.as_u16(),
+        message: message
+    }))
+}
+
+fn bad_req(message: String) -> (StatusCode, Json<ErrResp>) {
+    err_resp(StatusCode::BAD_REQUEST, message)
 }
 
 // create address
@@ -54,12 +74,14 @@ struct GetAddressParams {
     index: String,
 }
 
+
+// get address by key scheme and derivation path
 async fn get_address(
     Path(GetAddressParams {
         key_scheme, purpose, coin_type, account, change, index
     }): Path<GetAddressParams>,
     State(wallet): State<Arc<Wallet>>
-) -> Result<impl IntoResponse, StatusCode> {
+) -> Result<impl IntoResponse, (StatusCode, Json<ErrResp>)> {
     let derivation_path = format!("m/{}/{}/{}/{}/{}", purpose, coin_type, account, change, index);
     let sig_scheme = parse_sig_scheme(key_scheme.as_str())?;
 
@@ -67,8 +89,7 @@ async fn get_address(
         &sig_scheme,
         Some(derivation_path.clone()))
         .or_else(|e| {
-            error!("wallet error {:?}, when creating address", e);
-            Err(StatusCode::BAD_REQUEST)
+            Err(bad_req(format!("error create address, {:?}", e)))
         })?;
     Ok(Json(CreateAddressResponse {
         derivation_path: derivation_path.clone(),
@@ -78,15 +99,14 @@ async fn get_address(
 
 async fn create_address(
     State(wallet): State<Arc<Wallet>>,
-    Form(req): Form<CreateAddressRequest>) -> Result<impl IntoResponse, StatusCode> {
+    Form(req): Form<CreateAddressRequest>) -> Result<impl IntoResponse, (StatusCode, Json<ErrResp>)> {
     let key_scheme = parse_sig_scheme(req.key_scheme.as_str())?;
 
     let addr = wallet.create_address(
         &key_scheme,
         req.derivation_path.clone())
         .or_else(|e| {
-            error!("create address wallet error {:?}", e);
-            Err(StatusCode::BAD_REQUEST)
+            Err(bad_req(format!("create address error, {:?}", e)))
         })?;
     Ok(Json(CreateAddressResponse {
         derivation_path: req.derivation_path.clone().unwrap_or("".to_owned()),
@@ -109,21 +129,23 @@ struct SignResponse {
 
 async fn make_signature(
     State(wallet): State<Arc<Wallet>>,
-    Form(req): Form<SignRequest>) -> Result<impl IntoResponse, StatusCode> {
+    Form(req): Form<SignRequest>) -> Result<impl IntoResponse, (StatusCode, Json<ErrResp>)> {
 
     let decoded = Base64::decode(req.data.as_str())
             .or_else(|e| {
                 error!("error at Base64::decode {:?}, {}", e, req.data);
-                Err(StatusCode::BAD_REQUEST)
+                Err(bad_req(format!("error Base64::decode, {:?}", e)))
             })?;
-    let key_scheme = parse_sig_scheme(req.key_scheme.as_str())?; //SignatureScheme::from_str(req.key_scheme.as_str()).unwrap();
+    let key_scheme = parse_sig_scheme(
+        req.key_scheme.as_str())?;
+
     let sig = wallet.sign(
             &key_scheme,
             req.derivation_path,
             decoded.as_slice())
             .or_else(|e| {
                 error!("error at sign {:?}", e);
-                Err(StatusCode::BAD_REQUEST)
+                Err(bad_req(format!("error make signature {:?}", e)))
             })?;
 
     Ok(Json(SignResponse {
@@ -132,12 +154,13 @@ async fn make_signature(
 }
 
 // helper functions
-fn parse_sig_scheme(scheme_str: &str) -> Result<SignatureScheme, StatusCode> {
+fn parse_sig_scheme(scheme_str: &str) -> Result<SignatureScheme, (StatusCode, Json<ErrResp>)> {
+    if scheme_str != "secp256k1" && scheme_str != "ed25519" {
+        return Err(bad_req("invalid sig scheme".to_owned()));
+    }
     let key_scheme = SignatureScheme::from_str(scheme_str)
     .or_else(|e| {
-        println!("bad parsing SignatureScheme {:?} using {}", e, scheme_str);
-        error!("bad parsing SignatureScheme {:?} using {}", e, scheme_str);
-        Err(StatusCode::BAD_REQUEST)
+        Err(bad_req(format!("bad parsing signature scheme {:?}", e)))
     })?;
     Ok(key_scheme)
 }
