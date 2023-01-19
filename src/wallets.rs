@@ -44,6 +44,10 @@ impl SigResult {
         self.flag.clone()
     }
 
+    pub fn flag_base64(&self) -> String {
+        Base64::encode(self.flag.clone())
+    }
+
     pub fn signature_scheme(&self) -> Result<SignatureScheme, WalletError> {
         signature_scheme_from_u8(self.flag_byte())
     }

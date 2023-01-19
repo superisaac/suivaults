@@ -142,7 +142,9 @@ struct SignRequest {
 
 #[derive(Deserialize, Serialize)]
 struct SignResponse {
-    signature: String
+    flag: String,
+    signature: String,
+    pubkey: String
 }
 
 async fn make_signature(
@@ -167,6 +169,8 @@ async fn make_signature(
             })?;
 
     Ok(Json(SignResponse {
+        flag: sig.flag_base64(),
+        pubkey: sig.public_key(),
         signature: sig.signature(),
     }))
 }
