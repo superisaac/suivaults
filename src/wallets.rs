@@ -13,16 +13,16 @@ use bip32::{DerivationPath, Mnemonic, Language};
 use eth_keystore::{encrypt_key, decrypt_key, KeystoreError};
 use fastcrypto::encoding::{Base64, Encoding};
 use sui_keys::key_derive::derive_key_pair_from_path;
-use sui_types::crypto::{SignatureScheme, SuiKeyPair, PublicKey };
+use sui_types::crypto::{SignatureScheme, SuiKeyPair, PublicKey, Signer, SuiSignature };
 use sui_types::base_types::SuiAddress;
 use sui_types::error::SuiError;
-use signature::{ Signer, Error as SigError};
+use signature::{ Error as SigError};
 use signature::rand_core::OsRng;
 use core::str::FromStr;
 
 #[derive(Clone)]
 pub struct SigResult {
-    flag: Vec<u8>,
+    flag_byte: u8,
     signature: String,
     public_key: String,
 }
@@ -37,15 +37,15 @@ impl SigResult {
     }
 
     pub fn flag_byte(&self) -> u8 {
-        self.flag[0]
+        self.flag_byte
     }
 
     pub fn flag(&self) -> Vec<u8> {
-        self.flag.clone()
+        vec![self.flag_byte]
     }
 
     pub fn flag_base64(&self) -> String {
-        Base64::encode(self.flag.clone())
+        Base64::encode(self.flag())
     }
 
     pub fn signature_scheme(&self) -> Result<SignatureScheme, WalletError> {
@@ -232,26 +232,15 @@ impl Wallet {
     pub fn sign(&self, key_scheme: &SignatureScheme, derive_path: Option<String>, data: &[u8]) -> Result<SigResult, WalletError> {
         let (_, key_pair) = self.derive_key_pair(key_scheme, derive_path)?;
 
-        let sig_joined = key_pair.try_sign(data)
-                                    .or_else(|err| Err(WalletError::Signature(err)))?;
+        let sig = key_pair.sign(data);
 
-        let signature_string = format!("{:?}", sig_joined);
-
-        // signature string is the conjunction of [flag, sig, public key] using '@'.
-        let sig_split = signature_string.split('@').collect::<Vec<_>>();
-        let (flag, signature, pub_key) =
-        if let [flag, signature, pub_key] = sig_split.as_slice() {
-            (flag, signature, pub_key)
-        } else {
-             panic!("bad signature string {}", signature_string);
-        };
-
-        let decoded_flag = Base64::decode(*flag).unwrap();
-
+        let public_key = Base64::encode(sig.public_key_bytes());
+        let sig_str = Base64::encode(sig.signature_bytes());
+        
         Ok(SigResult {
-            flag: decoded_flag,
-            signature: (*signature).to_owned(),
-            public_key: (*pub_key).to_owned()
+            flag_byte: sig.scheme().flag(),
+            signature: sig_str,
+            public_key,
         })
     }
 
